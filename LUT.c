@@ -1,10 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "FE.h"
-#include "WC.h"
-
-#define UNMAPPED_VALUE 0xffffffff
+#include "LUT.h"
 
 MCA_t LUT_Table[TOTAL_LCAs] = {0}; // LUT table for LCA to MCA mapping
 
@@ -12,7 +9,7 @@ void LUTinit()
 {
     for (int i = 0; i < TOTAL_LCAs; i++)
     {
-        LUT_Table[i].MBA = UNMAPPED_VALUE; // Initialize all entries to UNMAPPED_VALUE
+        LUT_Table[i].MBA = UNMAPPED_VALUE;
         LUT_Table[i].mco.wl = UNMAPPED_VALUE;
         LUT_Table[i].mco.str = UNMAPPED_VALUE;
         LUT_Table[i].mco.bank = UNMAPPED_VALUE;
@@ -23,23 +20,39 @@ void LUTinit()
     }
 }
 
-void lut_update_request(uint32_t LCA, MCA_t mca)
+void lut_update_request(uint32_t LCA, MCA_t *mca)
 {
-    LUT_Table[LCA] = mca;
-    printf("\n LUT: LCA to MCA Mapping is updated.");
+    LUT_Table[LCA].MBA = mca->MBA;
+    LUT_Table[LCA].mco.wl = mca->mco.wl;
+    LUT_Table[LCA].mco.str = mca->mco.str;
+    LUT_Table[LCA].mco.bank = mca->mco.bank;
+    LUT_Table[LCA].mco.page = mca->mco.page;
+    LUT_Table[LCA].mco.channel = mca->mco.channel;
+    LUT_Table[LCA].mco.plane = mca->mco.plane;
+    LUT_Table[LCA].mco.cluster_offset = mca->mco.cluster_offset;
+
+    printf("\nLUT: LCA %u mapping updated to MCA.\n", LCA);
 }
 
-uint8_t lut_read_request(uint32_t LCA)
+uint32_t lut_read_request(uint32_t LCA)
 {
     MCA_t mca = LUT_Table[LCA];
 
     if (mca.MBA == UNMAPPED_VALUE)
     {
         printf("LUT: Read failed, LCA %u is unmapped\n", LCA);
-        return 0; // Mapping not found
+        return 0;
     }
 
-    // Mapping exists, forward read request
     printf("LUT: Read request for LCA %u mapped to MCA\n", LCA);
-    return fil_read_request(mca); // Request forwarded successfully
+    printf("LUT: MBA: %u, WL: %u, STR: %u, BANK: %u, PAGE: %u, CHANNEL: %u, PLANE: %u\n",
+           mca.MBA,
+           mca.mco.wl,
+           mca.mco.str,
+           mca.mco.bank,
+           mca.mco.page,
+           mca.mco.channel,
+           mca.mco.plane);
+    printf("LUT: CLUSTER OFFSET: %u\n", mca.mco.cluster_offset);
+    return fil_read_request(mca);
 }

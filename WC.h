@@ -2,22 +2,14 @@
 #define WC_H
 
 #include <stdint.h>
+#include "FE.h"
+#include "LBM.h"
+#include "L2P.h"
+#include "FIL.h"
+#include "LUT.h"
+#include "MCA.h"
 
-typedef struct tag_MCO_t
-{
-    uint32_t wl : 7;
-    uint32_t str : 2;
-    uint32_t bank : 2;
-    uint32_t page : 2;
-    uint32_t channel : 3;
-    uint32_t plane : 1;
-    uint32_t cluster_offset : 2;
-} MCO_t;
+void WCinit(MCA_t *mca);
+uint32_t wc_write_request(uint32_t lca);
 
-typedef struct tag_MCA_T
-{
-    uint32_t MBA;
-    MCO_t mco;
-} MCA_t;
-
-#endif
+#endif // WC_H

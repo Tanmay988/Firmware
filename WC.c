@@ -1,12 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "WC.h"
-#include "FE.h"
-#include "LBM.h"
-#include "L2P.h"
 
 extern LogicalBlock_t input_list;
-uint32_t block_assigned = 0;
+static uint32_t block_assigned = 0;
 
 void WCinit(MCA_t *mca)
 {
@@ -28,22 +25,42 @@ void WCinit(MCA_t *mca)
     printf("WC: MCA structure initialized to default values.\n");
 }
 
-void wc_write_request(uint32_t lca)
+uint32_t wc_write_request(uint32_t lca)
 {
+    printf("WC: Write request for LCA %u\n", lca);
     static MCA_t mca = {0}; // MCA context for current write
 
-    // Check if block is allocated in input_list
-    if (input_list.mba == (TOTAL_SUPERBLOCKS + 1) && block_assigned == 0)
+    // Allocate block if not assigned
+    if (block_assigned == 0)
     {
-        input_list = lbm_allocate_block(); // Request a block from LBM
+        input_list = lbm_allocate_block();
         block_assigned = 1;
-        fil_erase_block(input_list); // Erase block before use
+        fil_erase_block(input_list);
         mca.MBA = input_list.mba;
         mca.mco.cluster_offset = 0;
     }
 
-    if (mca.mco.cluster_offset >= 4)
+    mca.mco.wl = input_list.wl;
+    mca.mco.str = input_list.str;
+    mca.mco.bank = l2p_table[mca.MBA][input_list.physical_block_id].bank_no;
+    mca.mco.channel = l2p_table[mca.MBA][input_list.physical_block_id].ch_no;
+    mca.mco.plane = l2p_table[mca.MBA][input_list.physical_block_id].plane_no;
+    mca.mco.page = 0;
+
+    // Write via FIL and update LUT
+    if (fil_write_request(lca, &mca))
     {
+        lut_update_request(lca, &mca);
+    }
+    else
+    {
+        printf("WC: Write request failed for LCA %u\n", lca);
+        return 0;
+    }
+
+    if (mca.mco.cluster_offset >= 3)
+    {
+     
         mca.mco.cluster_offset = 0;
         input_list.wl++;
 
@@ -52,6 +69,7 @@ void wc_write_request(uint32_t lca)
             input_list.wl = 0;
             input_list.str++;
         }
+
         if (input_list.str >= STRINGS)
         {
             input_list.vccount++;
@@ -60,33 +78,16 @@ void wc_write_request(uint32_t lca)
             input_list.wl = 0;
         }
     }
-
-    // create MCA structure for the current LCA
-    mca.mco.wl = input_list.wl;
-    mca.mco.str = input_list.str;
-    mca.mco.bank = l2p_table[mca.MBA][input_list.physical_block_id].bank_no;
-    mca.mco.channel = l2p_table[mca.MBA][input_list.physical_block_id].ch_no;
-    mca.mco.plane = l2p_table[mca.MBA][input_list.physical_block_id].plane_no;
-    mca.mco.page = 0;
-
-    if (fil_write_request(lca, mca))
-    {
-        // Update mapping in LUT
-        lut_update(lca, mca);
-    }
     else
     {
-        printf("WC: Write request failed for LCA %u\n", lca);
-        return;
+        mca.mco.cluster_offset++; 
     }
-
-    // Move to next cluster offset (0 to 3 per page)
-    mca.mco.cluster_offset++;
 
     if (input_list.physical_block_id >= TOTAL_PHYSICALbLOCK_PER_SUPERBLOCK)
     {
-        input_list.mba = (TOTAL_SUPERBLOCKS + 1);
         block_assigned = 0;
-        lbm_move_input_to_active(input_list); // Move to active list
+        lbm_move_input_to_active(input_list);
     }
+
+    return 1;
 }

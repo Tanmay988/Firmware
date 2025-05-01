@@ -31,8 +31,13 @@ void LBMinit()
 {
     for (uint32_t i = 0; i < TOTAL_SUPERBLOCKS; i++)
     {
-        LogicalBlock_t block = {0};
+        LogicalBlock_t block;
         block.mba = i;
+        block.bad_block_count = 0;
+        block.vccount = 0;
+        block.physical_block_id = 0;
+        block.wl = 0;
+        block.str = 0;
         lbm_add_to_tail(&free_list, block);
     }
     printf("LBM: Initialized %d logical blocks in free_list\n", TOTAL_SUPERBLOCKS);
@@ -192,16 +197,16 @@ void lbm_retire_logical_block()
     }
 }
 
-int main()
-{
-    // Initialize the LBM
-    LBMinit();
+// int main()
+// {
+//     // Initialize the LBM
+//     LBMinit();
 
-    // Print the free list
-    print_logical_block_list("Free List", &free_list);
+//     // Print the free list
+//     print_logical_block_list("Free List", &free_list);
 
-    // Print the active list (should be empty at this point)
-    print_logical_block_list("Active List", &active_list);
+//     // Print the active list (should be empty at this point)
+//     print_logical_block_list("Active List", &active_list);
 
-    return 0;
-}
+//     return 0;
+// }
